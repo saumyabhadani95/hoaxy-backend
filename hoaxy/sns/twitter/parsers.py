@@ -148,9 +148,9 @@ def replace_null_byte(jd, fp=None, new=''):
     data = json.dumps(jd, encoding='utf-8')
     if r'\u0000' in data:
         logger.warning(r'NULL byte (\u0000) found in %r and deleted!',
-                       jd['id'])
+                       jd['data']['id'])
         if fp is not None:
-            fp.write(jd['id_str'])
+            fp.write(jd['data']['id_str'])
             fp.write('\n')
         data = data.replace(r'\\u0000', new)
         return json.loads(data, encoding='utf-8')
@@ -187,7 +187,7 @@ class Parser():
         self.ass_tweet = None
         self.created_at = None
 
-    def _parse_entities(self, entities, label):
+    def _parse_entities(self, entities, user_map, label):
         """Internal function to briefly parse the entities in a tweet object.
 
         By default postgresql column is case-sensitive and URL itself may
@@ -214,10 +214,13 @@ class Parser():
                     self.urls['union'].add(u)
                 else:
                     logger.error('Invalid URL %s', u)
-        if 'user_mentions' in entities:
-            for m in entities['user_mentions']:
-                user_raw_id = m.get('id')
-                screen_name = m.get('screen_name')
+        if 'mentions' in entities:
+            for m in entities['mentions']:
+                #user_raw_id = m.get('id')
+                screen_name = m.get('username')
+                user_raw_id = 0
+                if screen_name in user_map.keys():
+                    user_raw_id = user_map[screen_name]
                 if user_raw_id and screen_name:
                     self.mentions[label].add((user_raw_id, screen_name))
                     self.mentions['union'].add((user_raw_id, screen_name))
@@ -250,12 +253,29 @@ class Parser():
         self.hashtags = dict(
             this=set(), quote=set(), retweet=set(), union=set())
         # this status
-        if 'entities' in jd:
-            self._parse_entities(jd['entities'], 'this')
-        if 'retweeted_status' in jd and 'entities' in jd['retweeted_status']:
-            self._parse_entities(jd['retweeted_status']['entities'], 'retweet')
-        if 'quoted_status' in jd and 'entities' in jd['quoted_status']:
-            self._parse_entities(jd['quoted_status']['entities'], 'quote')
+        user_map = {}
+        if 'includes' in jd:
+            if 'users' in jd['includes']:
+                for user in jd['includes']['users']:
+                    user_map[user["username"]] = user["id"] 
+            if 'tweets' in jd['includes']:
+                mapp_tweet_type = {}
+                for refer_tweets in jd['data']['referenced_tweets']:
+                    mapp_tweet_type[refer_tweets['id']] = refer_tweets['type']
+                for tweet in jd['includes']['tweets']:
+                    if 'entities' in tweet:
+                        if mapp_tweet_type[tweet['id']] == 'retweeted':
+                            self._parse_entities(tweet['entities'], user_map, 'retweet')
+                        elif mapp_tweet_type[tweet['id']] == 'quoted':
+                            self._parse_entities(tweet['entities'], user_map, 'quote')
+        if 'entities' in jd['data']:
+            self._parse_entities(jd['data']['entities'], user_map, 'this')
+        #if 'entities' in jd:
+        #    self._parse_entities(jd['entities'], 'this')
+        #if 'retweeted_status' in jd and 'entities' in jd['retweeted_status']:
+        #    self._parse_entities(jd['retweeted_status']['entities'], 'retweet')
+        #if 'quoted_status' in jd and 'entities' in jd['quoted_status']:
+        #    self._parse_entities(jd['quoted_status']['entities'], 'quote')
 
     def _parse_l2(self, jd):
         """Second Level parsing, the main function is to build parsed objects
@@ -275,40 +295,51 @@ class Parser():
         self.edges = set()
 
         # start parsing
-        tweet_raw_id = jd['id']
-        user_raw_id = jd['user']['id']
-        user_screen_name = jd['user']['screen_name']
-        self.created_at = utc_from_str(jd['created_at'])
+        tweet_raw_id = jd['data']['id']
+        user_raw_id = jd['data']['author_id']
+        user_map = {}
+        for user in jd['includes']['users']:
+            user_map[user["id"]] = user
+        included_tweet_map = {}
+        if "tweets" in jd['includes']:
+            for tweet in jd['includes']['tweets']:
+                included_tweet_map[tweet['id']] = tweet 
+        user_screen_name = user_map[user_raw_id]["username"] 
+        self.created_at = utc_from_str(jd['data']['created_at'])
         # add this user as full_user
         self.full_user.append(
-            (user_raw_id, user_screen_name, jd['user']['followers_count'],
-             jd['user'], self.created_at))
+            (user_raw_id, user_screen_name, user_map[user_raw_id]["public_metrics"]["followers_count"],
+             user_map[user_raw_id]["url"], self.created_at))
         quoted_status_id = None
         retweeted_status_id = None
-        if 'quoted_status' in jd:
-            quoted_user_id = jd['quoted_status']['user']['id']
-            quoted_screen_name = jd['quoted_status']['user']['screen_name']
-            quoted_status_id = jd['quoted_status']['id']
-            self.full_user.append(
-                (quoted_user_id, quoted_screen_name,
-                 jd['quoted_status']['user']['followers_count'],
-                 jd['quoted_status']['user'], self.created_at))
-        if 'retweeted_status' in jd:
-            retweeted_user_id = jd['retweeted_status']['user']['id']
-            retweeted_screen_name = jd['retweeted_status']['user'][
-                'screen_name']
-            retweeted_status_id = jd['retweeted_status']['id']
-            self.full_user.append(
-                (retweeted_user_id, retweeted_screen_name,
-                 jd['retweeted_status']['user']['followers_count'],
-                 jd['retweeted_status']['user'], self.created_at))
-        in_reply_to_status_id = jd['in_reply_to_status_id']
-        in_reply_to_user_id = jd['in_reply_to_user_id']
-        in_reply_to_screen_name = jd['in_reply_to_screen_name']
-        if in_reply_to_user_id is not None and\
-                in_reply_to_screen_name is not None:
-            self.in_reply_to_user = (in_reply_to_user_id,
-                                     in_reply_to_screen_name)
+        in_reply_to_status_id = None
+        if "referenced_tweets" in jd['data']:
+            for refer_tweet in jd['data']['referenced_tweets']:
+                tweet_from_map = included_tweet_map[refer_tweet['id']]
+                if refer_tweet['type'] == 'quoted':
+                    quoted_user_id = tweet_from_map['author_id']
+                    user_from_map = user_map[quoted_user_id]
+                    quoted_screen_name = user_from_map['username']
+                    quoted_status_id = refer_tweet['id']
+                    self.full_user.append(
+                        (quoted_user_id, quoted_screen_name,
+                        user_from_map["public_metrics"]["followers_count"],
+                        user_from_map['url'], self.created_at))
+                if refer_tweet['type'] == 'retweeted':
+                    retweeted_user_id = tweet_from_map['author_id']
+                    user_from_map = user_map[retweeted_user_id]
+                    retweeted_screen_name = user_from_map['username']
+                    retweeted_status_id = refer_tweet['id']
+                    self.full_user.append(
+                        (retweeted_user_id, retweeted_screen_name,
+                        user_from_map["public_metrics"]["followers_count"],
+                        user_from_map['url'], self.created_at))
+                if refer_tweet['type'] == 'replied_to':
+                    in_reply_to_status_id = refer_tweet['id']
+                    in_reply_to_user_id = tweet_from_map['author_id']
+                    user_from_map = user_map[in_reply_to_user_id]
+                    in_reply_to_screen_name = user_from_map['username']
+                    self.in_reply_to_user = (in_reply_to_user_id,in_reply_to_screen_name)
         self.ass_tweet = (tweet_raw_id, retweeted_status_id, quoted_status_id,
                           in_reply_to_status_id)
         #
@@ -414,11 +445,11 @@ class Parser():
             jd = replace_null_byte(jd)
         self._parse_l1(jd)
         if self.save_none_url_tweet is False and not self.urls['union']:
-            logger.warning('Tweet=%s with no URL, ignored', jd.get('id'))
+            logger.warning('Tweet=%s with no URL, ignored', jd['data'].get('id'))
             return None
         self._parse_l2(jd)
-        tweet_raw_id = jd['id']
-        user_raw_id = jd['user']['id']
+        tweet_raw_id = jd['data']['id']
+        user_raw_id = jd['data']['author_id']
         mentioned_user = [
             m + (self.created_at, ) for m in self.mentions['union']
         ]
