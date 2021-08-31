@@ -465,4 +465,3 @@ class TwitterStream():
             finally:
                 # close the request connection
                 logger.info('Request connection closed!')
-                resp.close()
