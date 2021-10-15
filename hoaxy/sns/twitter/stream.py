@@ -151,7 +151,7 @@ class TwitterStream():
         self._backoff_sleep = None
         self._backoff_strategy = None
 
-    def _set_rules():
+    def _set_rules(self):
         # You can adjust the rules if needed
         #sample_rules = [
         #    {"value": "url:foxnews.com OR url:cnn.com", "tag": "Fox News Stream"},
