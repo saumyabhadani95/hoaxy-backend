@@ -47,6 +47,7 @@ ENV ANT_OPTS="-Dhttp.proxyHost=proxy -Dhttp.proxyPort=8080"
 
 #Install dependencies for hoaxy
 RUN conda install -y python=3.7.5\
+        conda-forge::tweepy>=3.5\
         docopt \
         Flask \
         gunicorn \
@@ -62,15 +63,18 @@ RUN conda install -y python=3.7.5\
         sqlparse \
         tabulate \
         gxx_linux-64 \
-        make
+        cryptography \
+	make
+
+RUN conda install -c conda-forge demjson
 
 WORKDIR /usr/src/pylucene
 
 RUN apk add --no-cache --no-progress nano htop jq ca-certificates curl libssl1.1 apache-ant openssl openssl-dev g++ gcc bash git
 
 RUN mkdir -p /root/.ant/lib
-RUN curl https://downloads.apache.org/ant/ivy/2.4.0/apache-ivy-2.4.0-bin.tar.gz | tar -xz --strip-components=1 \
-    && cp ivy-2.4.0.jar /root/.ant/lib/
+RUN curl https://downloads.apache.org/ant/ivy/2.5.0/apache-ivy-2.5.0-bin.tar.gz | tar -xz --strip-components=1 \
+    && cp ivy-2.5.0.jar /root/.ant/lib/
 
 RUN apk add --no-cache python && \
     python -m ensurepip && \
@@ -106,7 +110,9 @@ RUN curl https://downloads.apache.org/lucene/pylucene/pylucene-7.7.1-src.tar.gz 
 
 ENV HOAXY_VCS_BRANCH=${HOAXY_VCS_BRANCH:-"master"} \
     HOAXY_VCS_DEPTH=${HOAXY_VCS_DEPTH:-"1"} \
-    HOAXY_VCS_REMOTE=${HOAXY_VCS_REMOTE:-"https://github.com/IUNetSci/hoaxy-backend.git"}
+    #HOAXY_VCS_REMOTE=${HOAXY_VCS_REMOTE:-"https://github.com/IUNetSci/hoaxy-backend.git"}
+    HOAXY_VCS_REMOTE=${HOAXY_VCS_REMOTE:-"https://github.com/saumyabhadani95/hoaxy-backend.git"}
+
 
 RUN apk add --no-cache --no-progress yaml-dev postgresql-dev \
     && git clone --recursive --depth=${HOAXY_VCS_DEPTH} --branch ${HOAXY_VCS_BRANCH} ${HOAXY_VCS_REMOTE} \
@@ -115,6 +121,7 @@ RUN apk add --no-cache --no-progress yaml-dev postgresql-dev \
 
 RUN cd hoaxy-backend \
     && pip install --upgrade --force-reinstall jieba3k==0.35.1 \
+    && pip install --upgrade --force-reinstall tweepy==3.5.0 \
     && pip install requests --upgrade \
     && python setup.py install
 
@@ -122,20 +129,22 @@ RUN cd hoaxy-backend \
 #    && find . -name '*.pyc' -delete \
 
 ## Use entrypoint script to switch case and pass custom/default params to hoaxy
-WORKDIR /opt
-COPY entrypoint.sh .
-RUN chmod +x /opt/entrypoint.sh
+#WORKDIR /opt
+#COPY entrypoint.sh .
+#RUN chmod +x /opt/entrypoint.sh
 
 ## If Dockerfile at root dir of vcs repo
 # COPY . . 
 # RUN python setup.py install
+RUN mkdir /home/hoaxy
+WORKDIR /home/hoaxy
 
-ENV HOAXY_HOME=/home/.hoaxy
+ENV HOAXY_HOME=/home/hoaxy
 
 EXPOSE 5432
 
 ## If entrypoint.sh switch case
-ENTRYPOINT ["/opt/entrypoint.sh"]
+#ENTRYPOINT ["/opt/entrypoint.sh"]
 CMD ["bash"]
 ## Dev mode
 # CMD ["/bin/bash"]
