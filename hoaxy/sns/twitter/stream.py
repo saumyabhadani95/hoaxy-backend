@@ -389,9 +389,9 @@ class TwitterStream():
         except json.JSONDecodeError as err:
             logger.error('Json loads error: %s, raw data: %s', err, line)
             return False
-        if not ('in_reply_to_status_id' in jd and 'user' in jd and 'id' in jd):
-            logger.error('Not status tweet: %s', jd)
-            return False
+        #if not ('in_reply_to_status_id' in jd and 'user' in jd and 'id' in jd):
+        #    logger.error('Not status tweet: %s', jd)
+        #    return False
         self._counter += 1
         if self._counter % self.window_size == 0:
             logger.info('TwitterStreamer received %s tweets', self._counter)

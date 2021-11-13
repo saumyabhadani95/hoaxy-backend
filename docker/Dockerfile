@@ -3,18 +3,34 @@ FROM frolvlad/alpine-glibc:alpine-3.9
 ENV CONDA_DIR="/opt/conda"
 ENV PATH="$CONDA_DIR/bin:$PATH"
 
-RUN apk add --no-cache --update alpine-sdk \
+RUN apk add --no-cache --update \
+                     alpine-sdk \
+                     apache-ant \ 
+                     bash \
+                     ca-certificates \ 
+                     curl \ 
+                     g++ \ 
+                     gcc \ 
+                     git \
+                     htop \ 
+                     jq \ 
+                     libffi-dev \
+                     libssl1.1 \ 
                      libxml2-dev \
                      libxslt-dev \
-                     python-dev \
+                     musl-dev \ 
+                     nano \
+                     openssl \ 
                      openssl-dev \
-                     libffi-dev \
-                     zlib-dev \
+                     openssl-dev \ 
+                     postgresql-dev \
                      py-pip \
-                     nano bash jq musl-dev
-
+                     python-dev \
+                     vim \
+                     yaml-dev \ 
+                     zlib-dev 
 # Install conda2
-# Install conda
+
 RUN CONDA_VERSION="4.5.12" && \
     CONDA_MD5_CHECKSUM="866ae9dff53ad0874e1d1a60b1ad1ef8" && \
     \
@@ -45,18 +61,22 @@ ENV PATH $PATH:$ANT_HOME/bin
 
 ENV ANT_OPTS="-Dhttp.proxyHost=proxy -Dhttp.proxyPort=8080"
 
-#Install dependencies for hoaxy
-RUN conda install -y python=3.7.5\
-        conda-forge::tweepy>=3.5\
+# Install dependencies for hoaxy
+
+RUN conda install -y python=3.7.5 \
+        conda-forge::'tweepy>=3.5,<4' \
+        conda-forge::demjson \
+        conda-forge::jieba3k==0.35.1 \
+        requests \
         docopt \
         Flask \
         gunicorn \
         networkx \
-        pandas \
         psycopg2 \
         python-dateutil \
         pytz \
         pyyaml \
+        requests \
         scrapy \
         simplejson \
         SQLAlchemy \
@@ -66,38 +86,11 @@ RUN conda install -y python=3.7.5\
         cryptography \
 	make
 
-RUN conda install -c conda-forge demjson
-
 WORKDIR /usr/src/pylucene
-
-RUN apk add --no-cache --no-progress nano htop jq ca-certificates curl libssl1.1 apache-ant openssl openssl-dev g++ gcc bash git
 
 RUN mkdir -p /root/.ant/lib
 RUN curl https://downloads.apache.org/ant/ivy/2.5.0/apache-ivy-2.5.0-bin.tar.gz | tar -xz --strip-components=1 \
     && cp ivy-2.5.0.jar /root/.ant/lib/
-
-RUN apk add --no-cache python && \
-    python -m ensurepip && \
-    rm -r /usr/lib/python*/ensurepip && \
-    pip install --upgrade pip setuptools && \
-    rm -r /root/.cache
-
-# Install Gosu to /usr/local/bin/gosu
-# ADD https://github.com/tianon/gosu/releases/download/1.10/gosu-amd64 /usr/local/sbin/gosu
-# RUN chmod +x /usr/local/sbin/gosu
-# RUN adduser -D hoaxy -h /hoaxy -s /bin/sh
-# USER hoaxy
-
-# Install tini to /usr/local/sbin
-# ADD https://github.com/krallin/tini/releases/download/v0.18.0/tini-muslc-amd64 /usr/local/sbin/tini
-# RUN apk --no-cache --no-progress add ca-certificates git libssh2 openssl \
-# && chmod +x /usr/local/sbin/tini && mkdir -p /opt \
-# && adduser -D hoaxy -h /opt/hoaxy -s /bin/sh \
-# && su hoaxy -c 'cd /opt/hoaxy; mkdir -p bin config data'
-
-# Switch to user context
-# USER hoaxy
-# WORKDIR /opt/hoaxy
 
 RUN curl https://downloads.apache.org/lucene/pylucene/pylucene-7.7.1-src.tar.gz | tar -xz --strip-components=1 \
     && cd jcc \
@@ -108,47 +101,16 @@ RUN curl https://downloads.apache.org/lucene/pylucene/pylucene-7.7.1-src.tar.gz 
         && make all install JCC='python -m jcc' ANT=ant PYTHON=python NUM_FILES=8 \
         && rm -rf /usr/src/pylucene
 
-ENV HOAXY_VCS_BRANCH=${HOAXY_VCS_BRANCH:-"master"} \
-    HOAXY_VCS_DEPTH=${HOAXY_VCS_DEPTH:-"1"} \
-    #HOAXY_VCS_REMOTE=${HOAXY_VCS_REMOTE:-"https://github.com/IUNetSci/hoaxy-backend.git"}
-    HOAXY_VCS_REMOTE=${HOAXY_VCS_REMOTE:-"https://github.com/saumyabhadani95/hoaxy-backend.git"}
+ENV HOAXY_VCS_REMOTE="https://github.com/saumyabhadani95/hoaxy-backend.git"
 
-
-RUN apk add --no-cache --no-progress yaml-dev postgresql-dev \
-    && git clone --recursive --depth=${HOAXY_VCS_DEPTH} --branch ${HOAXY_VCS_BRANCH} ${HOAXY_VCS_REMOTE} \
-    && cd hoaxy-backend 
-#    && conda install -y psycopg2
-
-RUN cd hoaxy-backend \
-    && pip install --upgrade --force-reinstall jieba3k==0.35.1 \
-    && pip install --upgrade --force-reinstall tweepy==3.5.0 \
-    && pip install requests --upgrade \
+RUN git clone ${HOAXY_VCS_REMOTE} \
+    && cd hoaxy-backend  \
     && python setup.py install
 
-#    && pip install --upgrade --force-reinstall setuptools \
-#    && find . -name '*.pyc' -delete \
-
-## Use entrypoint script to switch case and pass custom/default params to hoaxy
-#WORKDIR /opt
-#COPY entrypoint.sh .
-#RUN chmod +x /opt/entrypoint.sh
-
-## If Dockerfile at root dir of vcs repo
-# COPY . . 
-# RUN python setup.py install
 RUN mkdir /home/hoaxy
 WORKDIR /home/hoaxy
 
 ENV HOAXY_HOME=/home/hoaxy
-
 EXPOSE 5432
-
-## If entrypoint.sh switch case
-#ENTRYPOINT ["/opt/entrypoint.sh"]
 CMD ["bash"]
-## Dev mode
-# CMD ["/bin/bash"]
 
-## With tini example
-# ENTRYPOINT ["tini", "-g", "--"]
-# CMD ["hoaxy", "-conf_dir=/opt/hoaxy/config"]
