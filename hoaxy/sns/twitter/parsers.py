@@ -528,6 +528,8 @@ class Parser():
         reduced_results = reduce(lambda x, y: {k: iconcat(x[k], y[k])
                                                for k in tkeys},
                                  parsed_results)
+        print("Results ::: ")
+        print(reduced_results)
         dfs = {
             k: pd.DataFrame(reduced_results[k], columns=PMETA[k]['p_keys'])
             for k in tkeys
