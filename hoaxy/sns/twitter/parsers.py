@@ -296,6 +296,7 @@ class Parser():
 
         # start parsing
         tweet_raw_id = jd['data']['id']
+        logger.debug('Processing=%s',tweet_raw_id)
         user_raw_id = jd['data']['author_id']
         user_map = {}
         for user in jd['includes']['users']:
