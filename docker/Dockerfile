@@ -31,8 +31,8 @@ RUN apk add --no-cache --update \
                      zlib-dev 
 # Install conda2
 
-RUN CONDA_VERSION="4.5.12" && \
-    CONDA_MD5_CHECKSUM="866ae9dff53ad0874e1d1a60b1ad1ef8" && \
+RUN CONDA_VERSION="4.6.14" && \
+    CONDA_MD5_CHECKSUM="718259965f234088d785cad1fbd7de03" && \
     \
     apk add --no-cache --virtual=.build-dependencies wget ca-certificates bash && \
     \
@@ -63,28 +63,13 @@ ENV ANT_OPTS="-Dhttp.proxyHost=proxy -Dhttp.proxyPort=8080"
 
 # Install dependencies for hoaxy
 
-RUN conda install -y python=3.7.5 \
-        conda-forge::'tweepy>=3.5,<4' \
-        conda-forge::demjson \
-        conda-forge::jieba3k==0.35.1 \
-        requests \
-        docopt \
-        Flask \
-        gunicorn \
-        networkx \
-        psycopg2 \
-        python-dateutil \
-        pytz \
-        pyyaml \
-        requests \
-        scrapy \
-        simplejson \
-        SQLAlchemy \
-        sqlparse \
-        tabulate \
-        gxx_linux-64 \
-        cryptography \
-	make
+RUN mkdir -p /root/conda
+COPY requirements.txt /root/conda
+WORKDIR /root/conda
+
+RUN conda install --file requirements.txt
+
+RUN conda install -y conda-forge::'tweepy>=3.5,<4'
 
 WORKDIR /usr/src/pylucene
 

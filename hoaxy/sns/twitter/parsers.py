@@ -529,10 +529,8 @@ class Parser():
         reduced_results = reduce(lambda x, y: {k: iconcat(x[k], y[k])
                                                for k in tkeys},
                                  parsed_results)
-        print("Results ::: ")
-        print(reduced_results)
         dfs = {
-            k: pd.DataFrame(reduced_results[k], columns=PMETA[k]['p_keys'])
+            k: pd.DataFrame(reduced_results[k], columns=PMETA[k]['p_keys'], dtype=object)
             for k in tkeys
         }
         # drop duplicates mainly based on unique keys
@@ -552,7 +550,7 @@ class Parser():
             #
             if k == 'ass_tweet':
                 # replace np.NAN as None
-                dfs[k] = dfs[k].astype('Int64')
+                dfs[k] = dfs[k].astype('float').astype('Int64')
                 dfs[k].replace({pd.np.nan: None}, inplace=True)
             dfs[k] = dfs[k].drop_duplicates(PMETA[k]['pu_keys'], keep='first')
         return dfs
