@@ -316,31 +316,32 @@ class Parser():
         in_reply_to_status_id = None
         if "referenced_tweets" in jd['data']:
             for refer_tweet in jd['data']['referenced_tweets']:
-                tweet_from_map = included_tweet_map[refer_tweet['id']]
-                if refer_tweet['type'] == 'quoted':
-                    quoted_user_id = tweet_from_map['author_id']
-                    user_from_map = user_map[quoted_user_id]
-                    quoted_screen_name = user_from_map['username']
-                    quoted_status_id = refer_tweet['id']
-                    self.full_user.append(
-                        (quoted_user_id, quoted_screen_name,
-                        user_from_map["public_metrics"]["followers_count"],
-                        user_from_map['url'], self.created_at))
-                if refer_tweet['type'] == 'retweeted':
-                    retweeted_user_id = tweet_from_map['author_id']
-                    user_from_map = user_map[retweeted_user_id]
-                    retweeted_screen_name = user_from_map['username']
-                    retweeted_status_id = refer_tweet['id']
-                    self.full_user.append(
-                        (retweeted_user_id, retweeted_screen_name,
-                        user_from_map["public_metrics"]["followers_count"],
-                        user_from_map['url'], self.created_at))
-                if refer_tweet['type'] == 'replied_to':
-                    in_reply_to_status_id = refer_tweet['id']
-                    in_reply_to_user_id = tweet_from_map['author_id']
-                    user_from_map = user_map[in_reply_to_user_id]
-                    in_reply_to_screen_name = user_from_map['username']
-                    self.in_reply_to_user = (in_reply_to_user_id,in_reply_to_screen_name)
+                if refer_tweet['id'] in included_tweet_map:
+                    tweet_from_map = included_tweet_map[refer_tweet['id']]
+                    if refer_tweet['type'] == 'quoted':
+                        quoted_user_id = tweet_from_map['author_id']
+                        user_from_map = user_map[quoted_user_id]
+                        quoted_screen_name = user_from_map['username']
+                        quoted_status_id = refer_tweet['id']
+                        self.full_user.append(
+                            (quoted_user_id, quoted_screen_name,
+                            user_from_map["public_metrics"]["followers_count"],
+                            user_from_map['url'], self.created_at))
+                    if refer_tweet['type'] == 'retweeted':
+                        retweeted_user_id = tweet_from_map['author_id']
+                        user_from_map = user_map[retweeted_user_id]
+                        retweeted_screen_name = user_from_map['username']
+                        retweeted_status_id = refer_tweet['id']
+                        self.full_user.append(
+                            (retweeted_user_id, retweeted_screen_name,
+                            user_from_map["public_metrics"]["followers_count"],
+                            user_from_map['url'], self.created_at))
+                    if refer_tweet['type'] == 'replied_to':
+                        in_reply_to_status_id = refer_tweet['id']
+                        in_reply_to_user_id = tweet_from_map['author_id']
+                        user_from_map = user_map[in_reply_to_user_id]
+                        in_reply_to_screen_name = user_from_map['username']
+                        self.in_reply_to_user = (in_reply_to_user_id,in_reply_to_screen_name)
         self.ass_tweet = (tweet_raw_id, retweeted_status_id, quoted_status_id,
                           in_reply_to_status_id)
         #
@@ -625,21 +626,23 @@ class Parser():
 
         # Table twitter_user
         tn = 'twitter_user'
-        if not dfs[k].empty:
+        if not dfs[tn].empty:
             q = """
             SELECT tu.id AS user_id, tu.raw_id AS user_raw_id
             FROM UNNEST(:raw_ids) AS t(raw_id)
                 JOIN twitter_user AS tu ON tu.raw_id=t.raw_id
             """
+            list_raw_ids = dfs[tn].raw_id.tolist()
+            int_list_raw_ids = [int(idd) for idd in list_raw_ids]
             rs = session.execute(
-                text(q).bindparams(raw_ids=dfs[tn].raw_id.tolist()))
+                text(q).bindparams(raw_ids=int_list_raw_ids))
             df_user = pd.DataFrame(iter(rs), columns=rs.keys())
         else:
-            df_user = pd.DataFrame([], columns=['user_id', 'user_raw_id'])
+            df_user = pd.DataFrame([], columns=['user_id', 'user_raw_id'], dtype=np.int64)
 
         # Table url
         tn = 'url'
-        if not dfs[k].empty:
+        if not dfs[tn].empty:
             q = """
             SELECT url.id AS url_id, url.raw AS url_raw
             FROM UNNEST(:raws) AS t(raw)
@@ -648,7 +651,7 @@ class Parser():
             rs = session.execute(text(q).bindparams(raws=dfs[tn].raw.tolist()))
             df_url = pd.DataFrame(iter(rs), columns=rs.keys())
         else:
-            df_url = pd.DataFrame([], columns=['url_id', 'url_raw'])
+            df_url = pd.DataFrame([], columns=['url_id', 'url_raw'], dtype=object)
 
         # Table hashtag
         tn = 'hashtag'
@@ -663,10 +666,12 @@ class Parser():
             df_hashtag = pd.DataFrame(iter(rs), columns=rs.keys())
         else:
             df_hashtag = pd.DataFrame(
-                [], columns=['hashtag_id', 'hashtag_text'])
+                [], columns=['hashtag_id', 'hashtag_text'], dtype=object)
 
         # update and insert tweet table
         tn = 'tweet'
+        df_user['user_raw_id'] = df_user['user_raw_id'].astype('float').astype('Int64')
+        dfs[tn]['user_raw_id'] = dfs[tn]['user_raw_id'].astype('float').astype('Int64')
         dfs[tn] = pd.merge(dfs[tn], df_user, on='user_raw_id')
         if not dfs[tn].empty and tn not in ignore_tables:
             stmt_do_nothing = insert(Tweet).returning(
@@ -698,16 +703,18 @@ class Parser():
             q = """
             SELECT tw.id AS tweet_id, tw.raw_id AS tweet_raw_id
             FROM UNNEST(:tweet_raw_ids) AS t(tweet_raw_id)
-                JOIN tweet AS tw ON tw.raw_id=t.tweet_raw_id
+                JOIN tweet AS tw ON tw.raw_id=t.tweet_raw_id::bigint
             """
             rs = session.execute(
                 text(q).bindparams(tweet_raw_ids=dfs['tweet'].raw_id.tolist()))
             df_tweet = pd.DataFrame(iter(rs), columns=rs.keys())
         else:
-            df_tweet = pd.DataFrame([], columns=['tweet_id', 'tweet_raw_id'])
+            df_tweet = pd.DataFrame([], columns=['tweet_id', 'tweet_raw_id'], dtype=object)
 
         # update and insert ass_tweet_url
         tn = 'ass_tweet_url'
+        df_tweet['tweet_raw_id'] = df_tweet['tweet_raw_id'].astype('float').astype('Int64')
+        dfs[tn]['tweet_raw_id'] = dfs[tn]['tweet_raw_id'].astype('float').astype('Int64')
         dfs[tn] = pd.merge(dfs[tn], df_url, on='url_raw')
         dfs[tn] = pd.merge(dfs[tn], df_tweet, on='tweet_raw_id')
         if not dfs[tn].empty and tn not in ignore_tables:
@@ -742,6 +749,7 @@ class Parser():
 
         # update and insert twitter_network_edge
         tn = 'twitter_network_edge'
+        dfs[tn]['tweet_raw_id'] = dfs[tn]['tweet_raw_id'].astype('float').astype('Int64')        
         dfs[tn] = pd.merge(dfs[tn], df_url, on='url_raw')
         dfs[tn] = pd.merge(dfs[tn], df_tweet, on='tweet_raw_id')
         if not dfs[tn].empty and tn not in ignore_tables:
