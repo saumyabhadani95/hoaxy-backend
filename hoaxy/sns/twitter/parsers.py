@@ -748,16 +748,16 @@ class Parser():
             session.commit()
 
         # update and insert twitter_network_edge
-        tn = 'twitter_network_edge'
-        dfs[tn]['tweet_raw_id'] = dfs[tn]['tweet_raw_id'].astype('float').astype('Int64')        
-        dfs[tn] = pd.merge(dfs[tn], df_url, on='url_raw')
-        dfs[tn] = pd.merge(dfs[tn], df_tweet, on='tweet_raw_id')
-        if not dfs[tn].empty and tn not in ignore_tables:
-            stmt_do_nothing = insert(TwitterNetworkEdge).values(
-                dfs[tn][PMETA[tn]['d_keys']].to_dict(orient='record')
-            ).on_conflict_do_nothing(index_elements=PMETA[tn]['du_keys'])
-            session.execute(stmt_do_nothing)
-            session.commit()
+        #tn = 'twitter_network_edge'
+        #dfs[tn]['tweet_raw_id'] = dfs[tn]['tweet_raw_id'].astype('float').astype('Int64')        
+        #dfs[tn] = pd.merge(dfs[tn], df_url, on='url_raw')
+        #dfs[tn] = pd.merge(dfs[tn], df_tweet, on='tweet_raw_id')
+        #if not dfs[tn].empty and tn not in ignore_tables:
+        #    stmt_do_nothing = insert(TwitterNetworkEdge).values(
+        #        dfs[tn][PMETA[tn]['d_keys']].to_dict(orient='record')
+        #    ).on_conflict_do_nothing(index_elements=PMETA[tn]['du_keys'])
+        #    session.execute(stmt_do_nothing)
+        #    session.commit()
 
     def bulk_parse_and_save(self,
                             jds,
