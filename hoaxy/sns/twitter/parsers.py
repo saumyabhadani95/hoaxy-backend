@@ -268,8 +268,9 @@ class Parser():
                             self._parse_entities(tweet['entities'], user_map, 'retweet')
                         elif mapp_tweet_type[tweet['id']] == 'quoted':
                             self._parse_entities(tweet['entities'], user_map, 'quote')
-        if 'entities' in jd['data']:
-            self._parse_entities(jd['data']['entities'], user_map, 'this')
+        if 'data' in jd:
+            if 'entities' in jd['data']:
+                self._parse_entities(jd['data']['entities'], user_map, 'this')
         #if 'entities' in jd:
         #    self._parse_entities(jd['entities'], 'this')
         #if 'retweeted_status' in jd and 'entities' in jd['retweeted_status']:
