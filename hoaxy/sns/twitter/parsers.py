@@ -268,9 +268,8 @@ class Parser():
                             self._parse_entities(tweet['entities'], user_map, 'retweet')
                         elif mapp_tweet_type[tweet['id']] == 'quoted':
                             self._parse_entities(tweet['entities'], user_map, 'quote')
-        if 'data' in jd:
-            if 'entities' in jd['data']:
-                self._parse_entities(jd['data']['entities'], user_map, 'this')
+        if 'entities' in jd['data']:
+            self._parse_entities(jd['data']['entities'], user_map, 'this')
         #if 'entities' in jd:
         #    self._parse_entities(jd['entities'], 'this')
         #if 'retweeted_status' in jd and 'entities' in jd['retweeted_status']:
@@ -302,6 +301,9 @@ class Parser():
         user_map = {}
         for user in jd['includes']['users']:
             user_map[user["id"]] = user
+        if user_raw_id not in user_map.keys():
+            logger.warning("Author not present in user map=%s",json.dumps(jd))
+            return
         included_tweet_map = {}
         if "tweets" in jd['includes']:
             for tweet in jd['includes']['tweets']:
@@ -445,9 +447,7 @@ class Parser():
         A dict contains all necessary parsed objects.
         """
         if validate_tweet is True:
-            jd = replace_null_byte(jd)
-        if 'data' not in jd:
-            return None 
+            jd = replace_null_byte(jd) 
         self._parse_l1(jd)
         if self.save_none_url_tweet is False and not self.urls['union']:
             logger.warning('Tweet=%s with no URL, ignored', jd['data'].get('id'))
@@ -763,7 +763,7 @@ class Parser():
         #    session.commit()
 
     def bulk_parse_and_save(self,
-                            jds,
+                            jds_all,
                             session,
                             platform_id,
                             multiprocesses=False,
@@ -771,7 +771,11 @@ class Parser():
         """A combined bulk operations: first parse a bucket of tweets, then save
         the parsed results into database.
         """
-        if jds:
+        if jds_all:
+            jds = []
+            for jd in jds_all:
+                if 'data' in jd:
+                    jds.append(jd)
             parsed_results = self.parse_many(
                 jds, multiprocesses=multiprocesses)
             if parsed_results:
