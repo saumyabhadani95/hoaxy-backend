@@ -151,6 +151,28 @@ class TwitterStream():
         self._backoff_sleep = None
         self._backoff_strategy = None
 
+    def _delete_existing_rules(self):
+        response = requests.get(
+            API_URL_rules,
+            headers=self.headers
+        )
+        if 'data' in response.json().keys():
+            dataa = response.json()['data']
+            delete_ids = [dat['id'] for dat in dataa]
+            payload = {"delete": {"ids":delete_ids}}
+            response = requests.post(
+                API_URL_rules,
+                headers=self.headers,
+                json=payload
+            )
+            if response.status_code != 200:
+                raise Exception(
+                    "Cannot delete existing rules (HTTP {}): {}".format(response.status_code, response.text)
+                )
+            else:
+                logger.info('TwitterStreamer deleted tweets from stream : '+str(response.text))
+
+
     def _set_rules(self):
         # You can adjust the rules if needed
         #sample_rules = [
@@ -162,7 +184,7 @@ class TwitterStream():
             {"value": 'sample:10 (url:"//wearethellod.com/" OR url:".wearethellod.com/" OR url:"//worstpot.us/" OR url:".worstpot.us/" OR url:"//bipartisan-report.com/" OR url:".bipartisan-report.com/" OR url:"//bipartisanreport.com/" OR url:".bipartisanreport.com/" OR url:"//bipartisanreports.com/" OR url:".bipartisanreports.com/" OR url:"//boston25news.com/" OR url:".boston25news.com/" OR url:"//fox25boston.com/" OR url:".fox25boston.com/" OR url:"//amp.businessinsider.com/" OR url:".amp.businessinsider.com/" OR url:"//businessinsider.com/" OR url:".businessinsider.com/" OR url:"//e.businessinsider.com/" OR url:".e.businessinsider.com/" OR url:"//it.businessinsider.com/" OR url:".it.businessinsider.com/" OR url:"//markets.businessinsider.com/" OR url:".markets.businessinsider.com/" OR url:"//mobile.businessinsider.com/" OR url:".mobile.businessinsider.com/" OR url:"//nordic.businessinsider.com/" OR url:".nordic.businessinsider.com/")', "tag": "2"},
             {"value": 'sample:10 (url:"//uk.businessinsider.com/" OR url:".uk.businessinsider.com/" OR url:"//cbn.com/" OR url:".cbn.com/" OR url:"//cbnwebcms.prod.acquia-sites.com/" OR url:".cbnwebcms.prod.acquia-sites.com/" OR url:"//cnn.com/" OR url:".cnn.com/" OR url:"//edition.cnn.com/" OR url:".edition.cnn.com/" OR url:"//conservativewiredaily.com/" OR url:".conservativewiredaily.com/" OR url:"//ustruthwire.com/" OR url:".ustruthwire.com/" OR url:"//blog.dana-farber.org/" OR url:".blog.dana-farber.org/" OR url:"//dana-farber.org/" OR url:".dana-farber.org/" OR url:"//dennismichaellynch.com/" OR url:".dennismichaellynch.com/" OR url:"//dmlnewsapp.com/" OR url:".dmlnewsapp.com/" OR url:"//denverguardian.com/" OR url:".denverguardian.com/" OR url:"//jestincoler.com/" OR url:".jestincoler.com/" OR url:"//deseret.com/" OR url:".deseret.com/")', "tag": "3"},
             {"value": 'sample:10 (url:"//deseretnews.com/" OR url:".deseretnews.com/" OR url:"//cal.espn.com/" OR url:".cal.espn.com/" OR url:"//cdn.espn.com/" OR url:".cdn.espn.com/" OR url:"//espn.cl/" OR url:".espn.cl/" OR url:"//espn.com/" OR url:".espn.com/" OR url:"//espn.com.ar/" OR url:".espn.com.ar/" OR url:"//espn.com.au/" OR url:".espn.com.au/" OR url:"//espn.com.br/" OR url:".espn.com.br/" OR url:"//espn.com.co/" OR url:".espn.com.co/" OR url:"//espn.com.mx/" OR url:".espn.com.mx/" OR url:"//espn.com.ve/" OR url:".espn.com.ve/" OR url:"//espn.co.uk/" OR url:".espn.co.uk/" OR url:"//espnfc.com/" OR url:".espnfc.com/" OR url:"//espnfc.com.au/" OR url:".espnfc.com.au/")', "tag": "4"},
-            {"value": 'sample:10 (url:"//espnfc.co.uk/" OR url:".espnfc.co.uk/" OR url:"//fcpredictor.espn.com/" OR url:".fcpredictor.espn.com/" OR url:"//games.espn.com/" OR url:".games.espn.com/" OR url:"//global.espn.com/" OR url:".global.espn.com/" OR url:"//insider.espn.com/" OR url:".insider.espn.com/" OR url:"//kwese.espn.com/" OR url:".kwese.espn.com/" OR url:"//m.espn.com/" OR url:".m.espn.com/" OR url:"//promo.espn.com/" OR url:".promo.espn.com/" OR url:"//proxy.espn.com/" OR url:".proxy.espn.com/" OR url:"//scorecenter.espn.com/" OR url:".scorecenter.espn.com/" OR url:"//scores.espn.com/" OR url:".scores.espn.com/" OR url:"//search.espn.com/" OR url:".search.espn.com/" OR url:"//support.espn.com/" OR url:".support.espn.com/" OR url:"//tv5.espn.com/" OR url:".tv5.espn.com/")', "tag": "5"},
+            {"value": 'sample:10 (url:"//espnfc.co.uk/" OR url:".espnfc.co.uk/" OR url:"//fcpredictor.espn.com/" OR url:".fcpredictor.espn.com/" OR url:"//games.espn.com/" OR url:".games.espn.com/" OR url:"//global.espn.com/" OR url:".global.espn.com/" OR url:"//insider.espn.com/" OR url:".insider.espn.com/" OR url:"//kwese.espn.com/" OR url:".kwese.espn.com/" OR url:"//m.espn.com/" OR url:".m.espn.com/" OR url:"//promo.espn.com/" OR url:".promo.espn.com/" OR url:"//proxy.espn.com/" OR url:".proxy.espn.com/" OR url:"//scorecenter.espn.com/" OR url:".scorecenter.espn.com/" OR url:"//scores.espn.com/" OR url:".scores.espn.com/" OR url:"//search.espn.com/" OR url:".search.espn.com/" OR url:"//support.espn.com/" OR url:".support.espn.com/" OR url:"//tv5.espn.com/" OR url:".tv5.espn.com/")', "tag": "10"},
             {"value": 'sample:10 (url:"//xgames.espn.com/" OR url:".xgames.espn.com/" OR url:"//fabiosa.com/" OR url:".fabiosa.com/" OR url:"//fabiosa.guru/" OR url:".fabiosa.guru/" OR url:"//fabiosa.me/" OR url:".fabiosa.me/" OR url:"//fabiosanews.com/" OR url:".fabiosanews.com/" OR url:"//wikr.com/" OR url:".wikr.com/" OR url:"//fastcodesign.com/" OR url:".fastcodesign.com/" OR url:"//fastcompany.com/" OR url:".fastcompany.com/" OR url:"//femalista.com/" OR url:".femalista.com/" OR url:"//gucmakale.com/" OR url:".gucmakale.com/" OR url:"//au.finance.yahoo.com/" OR url:".au.finance.yahoo.com/" OR url:"//ca.finance.yahoo.com/" OR url:".ca.finance.yahoo.com/" OR url:"//de.finance.yahoo.com/" OR url:".de.finance.yahoo.com/" OR url:"//finance.yahoo.com/" OR url:".finance.yahoo.com/")', "tag": "6"},
             {"value": 'sample:10 (url:"//hk.finance.yahoo.com/" OR url:".hk.finance.yahoo.com/" OR url:"//in.finance.yahoo.com/" OR url:".in.finance.yahoo.com/" OR url:"//nz.finance.yahoo.com/" OR url:".nz.finance.yahoo.com/" OR url:"//sg.finance.yahoo.com/" OR url:".sg.finance.yahoo.com/" OR url:"//uk.finance.yahoo.com/" OR url:".uk.finance.yahoo.com/" OR url:"//foxbusiness.com/" OR url:".foxbusiness.com/" OR url:"//press.foxbusiness.com/" OR url:".press.foxbusiness.com/" OR url:"//video.foxbusiness.com/" OR url:".video.foxbusiness.com/" OR url:"//foxnews.com/" OR url:".foxnews.com/" OR url:"//latino.foxnews.com/" OR url:".latino.foxnews.com/" OR url:"//press.foxnews.com/" OR url:".press.foxnews.com/" OR url:"//video.foxnews.com/" OR url:".video.foxnews.com/" OR url:"//video.latino.foxnews.com/" OR url:".video.latino.foxnews.com/" OR url:"//weather.blogs.foxnews.com/" OR url:".weather.blogs.foxnews.com/")', "tag": "7"},
             {"value": 'sample:10 (url:"//fpf-blog.blogspot.com/" OR url:".fpf-blog.blogspot.com/" OR url:"//freepressfront.com/" OR url:".freepressfront.com/" OR url:"//freeprfblog.blogspot.com/" OR url:".freeprfblog.blogspot.com/" OR url:"//free-speech-daily.blogspot.com/" OR url:".free-speech-daily.blogspot.com/" OR url:"//free-speech-front.blogspot.com/" OR url:".free-speech-front.blogspot.com/" OR url:"//free-speechfront.info/" OR url:".free-speechfront.info/" OR url:"//freespeech-front.info/" OR url:".freespeech-front.info/" OR url:"//free-speech-front-infoblog.blogspot.com/" OR url:".free-speech-front-infoblog.blogspot.com/" OR url:"//freespeech-front-info.blogspot.com/" OR url:".freespeech-front-info.blogspot.com/" OR url:"//freespeechfront.net/" OR url:".freespeechfront.net/" OR url:"//freespeechinfoblog.blogspot.com/" OR url:".freespeechinfoblog.blogspot.com/" OR url:"//freespeech-media.blogspot.com/" OR url:".freespeech-media.blogspot.com/")', "tag": "8"},
@@ -408,6 +430,7 @@ class TwitterStream():
         while True:
             try:
                 self._authenticate()
+                self._delete_existing_rules()
                 self._set_rules()
                 
                 #resp = self.client.post(

@@ -260,14 +260,16 @@ class Parser():
                     user_map[user["username"]] = user["id"] 
             if 'tweets' in jd['includes']:
                 mapp_tweet_type = {}
-                for refer_tweets in jd['data']['referenced_tweets']:
-                    mapp_tweet_type[refer_tweets['id']] = refer_tweets['type']
-                for tweet in jd['includes']['tweets']:
-                    if 'entities' in tweet:
-                        if mapp_tweet_type[tweet['id']] == 'retweeted':
-                            self._parse_entities(tweet['entities'], user_map, 'retweet')
-                        elif mapp_tweet_type[tweet['id']] == 'quoted':
-                            self._parse_entities(tweet['entities'], user_map, 'quote')
+                if "referenced_tweets" in jd['data']:
+                    for refer_tweets in jd['data']['referenced_tweets']:
+                        mapp_tweet_type[refer_tweets['id']] = refer_tweets['type']
+                    for tweet in jd['includes']['tweets']:
+                        if tweet['id'] in mapp_tweet_type.keys():
+                            if 'entities' in tweet:
+                                if mapp_tweet_type[tweet['id']] == 'retweeted':
+                                    self._parse_entities(tweet['entities'], user_map, 'retweet')
+                                elif mapp_tweet_type[tweet['id']] == 'quoted':
+                                    self._parse_entities(tweet['entities'], user_map, 'quote')
         if 'entities' in jd['data']:
             self._parse_entities(jd['data']['entities'], user_map, 'this')
         #if 'entities' in jd:
@@ -302,7 +304,7 @@ class Parser():
         for user in jd['includes']['users']:
             user_map[user["id"]] = user
         if user_raw_id not in user_map.keys():
-            logger.warning("Author not present in user map=%s",json.dumps(jd))
+            logger.warning("Author not present in user map=%s",json.dumps(a))
             return
         included_tweet_map = {}
         if "tweets" in jd['includes']:
