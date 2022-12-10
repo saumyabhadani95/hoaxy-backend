@@ -19,6 +19,7 @@ database.
 # written by Chengcheng Shao <sccotte@gmail.com>
 
 import logging
+import traceback
 from functools import reduce
 from operator import iconcat
 
@@ -304,7 +305,7 @@ class Parser():
         for user in jd['includes']['users']:
             user_map[user["id"]] = user
         if user_raw_id not in user_map.keys():
-            logger.warning("Author not present in user map=%s",json.dumps(a))
+            logger.warning("Author not present in user map=%s", json.dumps(user_map))
             return
         included_tweet_map = {}
         if "tweets" in jd['includes']:
@@ -313,9 +314,12 @@ class Parser():
         user_screen_name = user_map[user_raw_id]["username"] 
         self.created_at = utc_from_str(jd['data']['created_at'])
         # add this user as full_user
+        #self.full_user.append(
+        #    (user_raw_id, user_screen_name, user_map[user_raw_id]["public_metrics"]["followers_count"],
+        #        user_map[user_raw_id]["url"], self.created_at))
         self.full_user.append(
             (user_raw_id, user_screen_name, user_map[user_raw_id]["public_metrics"]["followers_count"],
-             user_map[user_raw_id]["url"], self.created_at))
+            "", self.created_at))
         quoted_status_id = None
         retweeted_status_id = None
         in_reply_to_status_id = None
@@ -328,19 +332,27 @@ class Parser():
                         user_from_map = user_map[quoted_user_id]
                         quoted_screen_name = user_from_map['username']
                         quoted_status_id = refer_tweet['id']
+                        #self.full_user.append(
+                        #    (quoted_user_id, quoted_screen_name,
+                        #    user_from_map["public_metrics"]["followers_count"],
+                        #    user_from_map['url'], self.created_at))
                         self.full_user.append(
                             (quoted_user_id, quoted_screen_name,
                             user_from_map["public_metrics"]["followers_count"],
-                            user_from_map['url'], self.created_at))
+                            "", self.created_at))
                     if refer_tweet['type'] == 'retweeted':
                         retweeted_user_id = tweet_from_map['author_id']
                         user_from_map = user_map[retweeted_user_id]
                         retweeted_screen_name = user_from_map['username']
                         retweeted_status_id = refer_tweet['id']
+                        #self.full_user.append(
+                        #    (retweeted_user_id, retweeted_screen_name,
+                        #    user_from_map["public_metrics"]["followers_count"],
+                        #    user_from_map['url'], self.created_at))
                         self.full_user.append(
                             (retweeted_user_id, retweeted_screen_name,
                             user_from_map["public_metrics"]["followers_count"],
-                            user_from_map['url'], self.created_at))
+                            "", self.created_at))
                     if refer_tweet['type'] == 'replied_to':
                         in_reply_to_status_id = refer_tweet['id']
                         in_reply_to_user_id = tweet_from_map['author_id']
@@ -687,8 +699,9 @@ class Parser():
             duplicated_tweet_raw_ids = set(dfs[tn].raw_id) - set(r[0]
                                                                  for r in rs)
             if len(duplicated_tweet_raw_ids) != 0:
-                logger.warning('Existed tweets with raw ids: %s',
-                               duplicated_tweet_raw_ids)
+                logger.warning(f'Found {len(duplicated_tweet_raw_ids)} duplicate tweets')
+                for _dup_tweet_id in duplicated_tweet_raw_ids:
+                    logger.debug(f"\t{_dup_tweet_id} is a duplicate raw ID")
             session.commit()
 
         # update and insert ass_url_platform
